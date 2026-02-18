@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700;800&display=swap" rel="stylesheet">
+    <title>Ranking Oficial ALTM</title>
+    <style>
+        body { 
+            background: linear-gradient(rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.96)), url('https://images.unsplash.com/photo-1534158914592-062992bbe900?q=80&w=1500');
+            background-size: cover; background-position: center; background-attachment: fixed;
+            min-height: 100vh; color: white; font-family: 'Rajdhani', sans-serif;
+        }
+        .cat-btn.active { background: #ff0032; color: white; border-color: #ff0032; box-shadow: 0 0 20px rgba(255, 0, 50, 0.4); }
+        .gold-card { background: linear-gradient(180deg, #FFD700 0%, #B8860B 100%); color: black; }
+        .silver-card { background: linear-gradient(180deg, #E0E0E0 0%, #808080 100%); color: black; }
+        .bronze-card { background: linear-gradient(180deg, #CD7F32 0%, #8B4513 100%); color: white; }
+        .atleta-row { background: rgba(20, 20, 20, 0.9); border-radius: 1.5rem; border: 1px solid rgba(255, 255, 255, 0.05); }
+        .atleta-row:hover { border-color: #ff0032; transform: scale(1.02); }
+        .cat-scroll::-webkit-scrollbar { height: 6px; }
+        .cat-scroll::-webkit-scrollbar-thumb { background: #ff0032; border-radius: 10px; }
+        
+        .etapa-select {
+            background: rgba(0,0,0,0.8);
+            border: 1px solid #ff0032;
+            color: #ff0032;
+            padding: 5px 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            text-transform: uppercase;
+            outline: none;
+        }
+
+        .admin-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 0, 50, 0.1);
+            border: 1px solid #ff0032;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ff0032;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .admin-btn:hover {
+            background: #ff0032;
+            color: white;
+            box-shadow: 0 0 20px rgba(255, 0, 50, 0.6);
+            transform: rotate(90deg);
+        }
+    </style>
+</head>
+<body class="pb-20">
+
+    <a href="admin.html" class="admin-btn" title="Painel Administrativo">
+        <i class="fas fa-cog text-xl"></i>
+    </a>
+
+    <div class="p-10 text-center animate-fade">
+        <h1 class="text-6xl md:text-8xl font-black italic tracking-tighter uppercase leading-none">
+            <span class="text-[#ff0032]">ALTM</span> RANKING
+        </h1>
+        <p class="text-gray-500 text-lg md:text-xl tracking-[0.6em] uppercase font-bold mt-4">Liga Regional 2026</p>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-6 mb-4 flex justify-end">
+        <select id="select-etapa-visualizar" onchange="mudarEtapaVisualizacao()" class="etapa-select cursor-pointer">
+            <option value="geral">RANKING GERAL</option>
+        </select>
+    </div>
+
+    <div class="max-w-7xl mx-auto mb-12 px-6">
+        <div class="flex gap-4 overflow-x-auto cat-scroll pb-6" id="menu-categorias"></div>
+    </div>
+
+    <div class="text-center mb-10">
+        <h2 id="titulo-categoria" class="text-3xl md:text-5xl font-black uppercase italic border-b-4 border-[#ff0032] inline-block px-12 pb-2">...</h2>
+        <p id="subtitulo-etapa" class="text-gray-400 mt-2 font-bold uppercase tracking-widest text-sm">Classificação Geral</p>
+    </div>
+
+    <!-- PÓDIO RESPONSIVO: Flex-Col no Mobile -->
+    <div id="podium" class="flex flex-col md:flex-row justify-center items-center md:items-end gap-6 md:gap-8 max-w-5xl mx-auto mb-20 px-4 min-h-[auto] md:h-80"></div>
+
+    <div class="max-w-5xl mx-auto space-y-4 px-6" id="tabela-atletas"></div>
+
+    <script>
+        const LISTA_CATEGORIAS = [
+            "Absoluto A", "Absoluto B", "Absoluto C", "Absoluto D", "Absoluto E", "Absoluto F",
+            "Infantil (até 15 anos)", "Juvenil", "Feminino", "Adulto", "Sênior", "Veterano 50+"
+        ];
+
+        let categoriaAtual = LISTA_CATEGORIAS[0];
+        let etapaAtualVisualizacao = "geral";
+        let sistema = {};
+
+        const selectEtapa = document.getElementById('select-etapa-visualizar');
+        for(let i=1; i<=20; i++) {
+            let opt = document.createElement('option');
+            opt.value = i;
+            opt.innerText = `ETAPA ${i}`;
+            selectEtapa.appendChild(opt);
+        }
+
+        function load() {
+            sistema = JSON.parse(localStorage.getItem('ranking_altm_multi')) || {};
+            LISTA_CATEGORIAS.forEach(cat => { if(!sistema[cat]) sistema[cat] = []; });
+            renderMenu();
+            renderRanking();
+        }
+
+        function mudarEtapaVisualizacao() {
+            etapaAtualVisualizacao = document.getElementById('select-etapa-visualizar').value;
+            renderRanking();
+        }
+
+        function renderMenu() {
+            const menu = document.getElementById('menu-categorias');
+            menu.innerHTML = LISTA_CATEGORIAS.map(cat => `
+                <button onclick="changeCat('${cat}')" class="cat-btn whitespace-nowrap px-8 py-4 rounded-2xl border-2 border-gray-800 font-black uppercase text-base transition-all ${cat === categoriaAtual ? 'active' : 'text-gray-500'}">
+                    ${cat}
+                </button>
+            `).join('');
+        }
+
+        function changeCat(cat) {
+            categoriaAtual = cat;
+            renderMenu();
+            renderRanking();
+        }
+
+        function renderRanking() {
+            document.getElementById('titulo-categoria').innerText = categoriaAtual;
+            document.getElementById('subtitulo-etapa').innerText = etapaAtualVisualizacao === 'geral' ? 'Classificação Geral' : `Resultado da Etapa ${etapaAtualVisualizacao}`;
+
+            let listaOriginal = sistema[categoriaAtual] || [];
+            
+            let listaProcessada = listaOriginal.map(atleta => {
+                let pts = 0;
+                if (etapaAtualVisualizacao === 'geral') {
+                    pts = Object.keys(atleta)
+                            .filter(k => k.startsWith('pts_'))
+                            .reduce((s, k) => s + (parseInt(atleta[k]) || 0), 0);
+                } else {
+                    pts = parseInt(atleta[`pts_${etapaAtualVisualizacao}`]) || 0;
+                }
+                return { nome: atleta.nome, pontos: pts };
+            });
+
+            listaProcessada = listaProcessada.filter(a => a.pontos > 0).sort((a, b) => b.pontos - a.pontos);
+
+            const podium = document.getElementById('podium');
+            const tabela = document.getElementById('tabela-atletas');
+
+            if(listaProcessada.length > 0) {
+                const p1 = listaProcessada[0], p2 = listaProcessada[1], p3 = listaProcessada[2], p4 = listaProcessada[3];
+                
+                // FORCEI "flex-col" no container e "w-full" nos cards para ficarem EMPILHADOS no celular
+                podium.innerHTML = `
+                    ${p1 ? `<div class="gold-card w-full md:w-1/3 rounded-[2rem] md:rounded-t-[2rem] flex flex-col items-center justify-center p-6 min-h-[180px] md:h-72 shadow-[0_0_50px_rgba(255,215,0,0.3)] z-10 relative transition hover:scale-110 order-1 md:order-2 border-4 md:border-0 border-yellow-400 mb-4 md:mb-0">
+                        <i class="fas fa-crown text-3xl mb-2"></i>
+                        <span class="md:hidden text-xs font-black uppercase mb-2 text-black/60">CAMPEÃO</span>
+                        <h3 class="font-black text-2xl md:text-3xl text-center uppercase truncate w-full">${p1.nome}</h3>
+                        <p class="text-6xl font-black mt-2">${p1.pontos}</p>
+                    </div>` : ''}
+
+                    ${p2 ? `<div class="silver-card w-full md:w-1/3 rounded-[2rem] md:rounded-t-[2rem] flex flex-col items-center justify-center p-6 min-h-[140px] md:h-56 shadow-2xl transition hover:scale-105 order-2 md:order-1 mb-4 md:mb-0">
+                        <span class="text-sm font-black uppercase opacity-60">2º Lugar</span>
+                        <h3 class="font-black text-xl md:text-2xl text-center uppercase truncate w-full mt-2">${p2.nome}</h3>
+                        <p class="text-4xl font-black">${p2.pontos}</p>
+                    </div>` : ''}
+                    
+                    ${p3 ? `<div class="bronze-card w-full md:w-1/3 rounded-[2rem] md:rounded-t-[2rem] flex flex-col items-center justify-center p-6 min-h-[140px] md:h-44 shadow-2xl transition hover:scale-105 order-3 md:order-3 mb-4 md:mb-0">
+                        <span class="text-sm font-black uppercase opacity-60">3º Lugar</span>
+                        <h3 class="font-black text-xl md:text-2xl text-center uppercase truncate w-full mt-2">${p3.nome}</h3>
+                        <p class="text-4xl font-black">${p3.pontos}</p>
+                    </div>` : ''}
+                    
+                    ${p4 ? `<div class="bronze-card w-full md:w-1/3 rounded-[2rem] md:rounded-t-[2rem] flex flex-col items-center justify-center p-6 min-h-[140px] md:h-44 shadow-2xl transition hover:scale-105 order-4 md:order-4 opacity-80">
+                        <span class="text-sm font-black uppercase opacity-60">3º Lugar (B)</span>
+                        <h3 class="font-black text-xl md:text-2xl text-center uppercase truncate w-full mt-2">${p4.nome}</h3>
+                        <p class="text-4xl font-black">${p4.pontos}</p>
+                    </div>` : ''}
+                `;
+            } else { 
+                podium.innerHTML = '<p class="text-gray-600 font-bold uppercase tracking-widest text-2xl text-center col-span-3 w-full">Aguardando resultados...</p>'; 
+            }
+
+            tabela.innerHTML = listaProcessada.map((atleta, i) => `
+                <div class="atleta-row p-6 flex items-center justify-between shadow-xl transition hover:border-[#ff0032]">
+                    <div class="flex items-center gap-8">
+                        <span class="w-10 text-3xl font-black italic ${i < 3 ? 'text-[#ff0032]' : 'text-gray-700'}">${i+1}</span>
+                        <div>
+                            <h4 class="font-black uppercase text-xl md:text-2xl text-white tracking-tighter">${atleta.nome}</h4>
+                            <p class="text-xs text-[#ff0032] font-black tracking-[0.3em] uppercase">Membro Federado</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-4xl font-black text-white">${atleta.pontos}</span>
+                        <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">PONTOS</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        setInterval(load, 5000); 
+        load();
+    </script>
+</body>
+</html>
